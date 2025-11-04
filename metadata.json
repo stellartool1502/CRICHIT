@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Copy of Crichit",
+  "description": "A modern, easy-to-use cricket scoring application for local matches, providing live scoring, a detailed scorecard, and AI-powered match summaries.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
