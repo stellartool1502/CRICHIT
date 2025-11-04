@@ -28,6 +28,17 @@
         .tournament-card h4 { margin: 0 0 10px 0; color: #2d3748; }
         .tournament-card p { margin: 5px 0; color: #4a5568; }
         .small-btn { padding: 8px 15px; font-size: 14px; margin: 5px; }
+        
+        /* Player Profiles specific styles */
+        .player-card { border: 1px solid #e2e8f0; padding: 20px; margin: 15px 0; border-radius: 10px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .player-name { font-size: 1.4rem; color: #2d3748; font-weight: bold; }
+        .player-type { background: #4299e1; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        .stat-card { background: #f7fafc; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #4299e1; }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: #2d3748; }
+        .stat-label { font-size: 0.8rem; color: #718096; margin-top: 5px; }
+        .search-bar { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #cbd5e0; border-radius: 8px; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -93,7 +104,7 @@
             <button class="btn" onclick="showScreen('home')" style="background: #718096;">← Back to Home</button>
         </div>
 
-        <!-- Tournament Screen - UPDATED WITH FUNCTIONALITY -->
+        <!-- Tournament Screen -->
         <div id="tournamentsScreen" class="screen hidden">
             <div style="text-align: center; margin-bottom: 30px;">
                 <h2>🏆 Tournament Management</h2>
@@ -126,19 +137,47 @@
             </button>
         </div>
 
-        <!-- Other Screens -->
+        <!-- Player Profiles Screen - UPDATED WITH FUNCTIONALITY -->
         <div id="playersScreen" class="screen hidden">
-            <h2>👤 Player Profiles & Statistics</h2>
-            <p>Comprehensive player management system:</p>
-            <ul style="text-align: left; margin: 20px 0; padding-left: 20px;">
-                <li>Batting averages and strike rates</li>
-                <li>Bowling economy and wicket tally</li>
-                <li>Fielding statistics</li>
-                <li>Performance graphs and trends</li>
-            </ul>
-            <button class="btn" onclick="showScreen('home')">← Back to Home</button>
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2>👤 Player Profiles & Statistics</h2>
+                <p>Comprehensive player management system</p>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Add New Player</h3>
+                <div class="form-group">
+                    <input type="text" class="form-input" placeholder="Player Name" id="playerName">
+                </div>
+                <div class="form-group">
+                    <select class="form-input" id="playerType">
+                        <option value="batsman">Batsman</option>
+                        <option value="bowler">Bowler</option>
+                        <option value="allrounder">All-Rounder</option>
+                        <option value="wicketkeeper">Wicket Keeper</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="addPlayer()">Add Player</button>
+            </div>
+
+            <div class="card">
+                <h3>Search Players</h3>
+                <input type="text" class="search-bar" placeholder="🔍 Search players by name..." onkeyup="searchPlayers(this.value)">
+            </div>
+
+            <div class="card">
+                <h3>Player Statistics</h3>
+                <div id="playersList">
+                    <p style="color: #666; text-align: center;">No players added yet</p>
+                </div>
+            </div>
+
+            <button class="btn" onclick="showScreen('home')" style="background: #718096; margin-top: 20px;">
+                ← Back to Home
+            </button>
         </div>
 
+        <!-- Other Screens -->
         <div id="matchesScreen" class="screen hidden">
             <h2>📊 Match History</h2>
             <p>Complete match records and analysis:</p>
@@ -193,9 +232,12 @@
                 document.getElementById('homeScreen').classList.remove('hidden');
             }
 
-            // Load tournaments list when tournament screen is shown
+            // Load data when screens are shown
             if(screenName === 'tournaments') {
                 updateTournamentList();
+            }
+            if(screenName === 'players') {
+                updatePlayersList();
             }
         }
 
@@ -211,7 +253,7 @@
             }
         }
 
-        // Tournament Management Functions - ADDED
+        // Tournament Management Functions
         function createTournament() {
             const name = document.getElementById('tournamentName').value;
             const location = document.getElementById('tournamentLocation').value;
@@ -290,6 +332,149 @@
             }
         }
 
+        // Player Profiles Functions - ADDED
+        function addPlayer() {
+            const name = document.getElementById('playerName').value;
+            const type = document.getElementById('playerType').value;
+            
+            if(name) {
+                const players = getPlayers();
+                const newPlayer = {
+                    id: Date.now(),
+                    name: name,
+                    type: type,
+                    matches: Math.floor(Math.random() * 20) + 5,
+                    runs: Math.floor(Math.random() * 1000) + 100,
+                    average: (Math.random() * 50 + 20).toFixed(2),
+                    strikeRate: (Math.random() * 50 + 80).toFixed(2),
+                    wickets: type === 'bowler' || type === 'allrounder' ? Math.floor(Math.random() * 30) + 5 : 0,
+                    economy: (Math.random() * 3 + 6).toFixed(2),
+                    catches: Math.floor(Math.random() * 20) + 5
+                };
+                players.push(newPlayer);
+                localStorage.setItem('players', JSON.stringify(players));
+                
+                alert(`🎉 ${name} added successfully as ${type}!`);
+                updatePlayersList();
+                
+                // Clear form
+                document.getElementById('playerName').value = '';
+            } else {
+                alert('Please enter player name');
+            }
+        }
+
+        function getPlayers() {
+            const data = localStorage.getItem('players');
+            return data ? JSON.parse(data) : [];
+        }
+
+        function updatePlayersList() {
+            const playersList = document.getElementById('playersList');
+            const players = getPlayers();
+            
+            if(players.length === 0) {
+                playersList.innerHTML = '<p style="color: #666; text-align: center;">No players added yet</p>';
+                return;
+            }
+            
+            playersList.innerHTML = players.map(player => `
+                <div class="player-card">
+                    <div class="player-header">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-type">${player.type.toUpperCase()}</div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${player.matches}</div>
+                            <div class="stat-label">Matches</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${player.runs}</div>
+                            <div class="stat-label">Runs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${player.average}</div>
+                            <div class="stat-label">Batting Avg</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${player.strikeRate}</div>
+                            <div class="stat-label">Strike Rate</div>
+                        </div>
+                        ${player.wickets > 0 ? `
+                        <div class="stat-card">
+                            <div class="stat-value">${player.wickets}</div>
+                            <div class="stat-label">Wickets</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${player.economy}</div>
+                            <div class="stat-label">Economy</div>
+                        </div>
+                        ` : ''}
+                        <div class="stat-card">
+                            <div class="stat-value">${player.catches}</div>
+                            <div class="stat-label">Catches</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button class="btn small-btn" onclick="viewPlayer(${player.id})" style="background: #4299e1;">
+                            View Details
+                        </button>
+                        <button class="btn small-btn" onclick="deletePlayer(${player.id})" style="background: #e53e3e;">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchPlayers(query) {
+            const players = getPlayers();
+            const filteredPlayers = players.filter(player => 
+                player.name.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            const playersList = document.getElementById('playersList');
+            
+            if(filteredPlayers.length === 0) {
+                playersList.innerHTML = '<p style="color: #666; text-align: center;">No players found</p>';
+                return;
+            }
+            
+            playersList.innerHTML = filteredPlayers.map(player => `
+                <div class="player-card">
+                    <div class="player-header">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-type">${player.type.toUpperCase()}</div>
+                    </div>
+                    <p>Matches: ${player.matches} | Runs: ${player.runs} | Avg: ${player.average}</p>
+                    <button class="btn small-btn" onclick="viewPlayer(${player.id})" style="background: #4299e1;">
+                        View Details
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function viewPlayer(playerId) {
+            const players = getPlayers();
+            const player = players.find(p => p.id === playerId);
+            if(player) {
+                alert(`👤 ${player.name}\n🎯 ${player.type.toUpperCase()}\n🏏 Matches: ${player.matches}\n📊 Runs: ${player.runs}\n⭐ Average: ${player.average}\n⚡ Strike Rate: ${player.strikeRate}${player.wickets > 0 ? `\n🎯 Wickets: ${player.wickets}\n📈 Economy: ${player.economy}` : ''}\n✋ Catches: ${player.catches}`);
+            }
+        }
+
+        function deletePlayer(playerId) {
+            if(confirm('Are you sure you want to delete this player?')) {
+                const players = getPlayers();
+                const filtered = players.filter(p => p.id !== playerId);
+                localStorage.setItem('players', JSON.stringify(filtered));
+                updatePlayersList();
+                alert('Player deleted successfully!');
+            }
+        }
+
         // Add some interactive effects
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🏏 Cricket Scorer App Loaded Successfully!');
@@ -307,8 +492,9 @@
                 }, index * 100);
             });
 
-            // Initialize tournament list
+            // Initialize data
             updateTournamentList();
+            updatePlayersList();
         });
     </script>
 </body>
