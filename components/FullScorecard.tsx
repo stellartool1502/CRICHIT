@@ -1,5 +1,5 @@
-import React from 'react';
-import { Match, Inning, Player } from '../types';
+import React, { useMemo } from 'react';
+import { Match, Inning, Player, Bowler, PlayerSpecialty } from '../types';
 
 interface FullScorecardProps {
   match: Match;
@@ -9,19 +9,50 @@ interface FullScorecardProps {
 const defaultAvatar = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2E1YjRjYyI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTguNjg1IDE5LjA5N0E5LjcyMyA5LjcyMyAwIDAgMCAyMS43NSAxMmMwLTUuMzg1LTQuMzY1LTkuNzUtOS43NS05Ljc1UzIuMjUgNi42MTUgMi4yNSAxMmE5LjcyMyA5LjcyMyAwIDAgMCAzLjA2NSA3LjA5N0E5LjcxNiA5LjcxNiAwIDAgMCAxMiAyMS43NWE5LjcxNiA5LjcxNiAwIDAgMCA2LjY4NS0yLjY1M1ptLTEyLjU0LTEuMjg1QTcuNDg2IDcuNDg2IDAgMCAxIDEyIDE1YTcuNDg2IDcuNDg2IDAgMCAxIDUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMCAxIDEyIDIwLjI1YTguMjI0IDguMjI0IDAgMCAxLTUuODU1LTIuNDM4Wk0xNS43NSA5YTMuNzUgMy43NSAwIDEgMS03LjUgMCAzLjc1IDMuNzUgMCAwIDEgNy41IDBaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+Cjwvc3ZnPgo=`;
 const defaultTeamLogo = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iY3VycmVudENvbG9yIiBjbGFzcz0idy02IGgtNiI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTIgMi4yNUE5Ljc1IDkuNzUgMCAxMCAyMS43NSAxMmE5Ljc1IDkuNzUgMCAwMC05Ljc1LTkuNzVabTAgMS41YTguMjUgOC4yNSAwIDEwMCAxNi41IDguMjUgOC4yNSAwIDAwMC0xNi41Wm0zLjM3MiAxMS40MjNhLjc1Ljc1IDAgMDAtMS4wNjEtMS4wNkwxMiAxMy4wNmw LTIuMzEyLTIuMzEyYS43NS43NSAwIDAwLTEuMDYgMS4wNkwxMC45NCAxMmwzLjQzMiAzLjQzM1oiIGNsaXAtcnVsZT0iZXZlbm9kZCIgLz4KPC9zdmc+Cg==`;
 
-const PlayerNameCell: React.FC<{ player: Player | { name: string, isCaptain?: boolean, isViceCaptain?: boolean, isWicketKeeper?: boolean } }> = ({ player }) => (
-    <>
-      <span>{player.name}</span>
-      {player.isCaptain && <span className="ml-2 text-xs font-bold text-gray-500">(C)</span>}
-      {player.isViceCaptain && <span className="ml-2 text-xs font-bold text-gray-500">(VC)</span>}
-      {player.isWicketKeeper && <span className="ml-2 text-xs text-gray-500"> (WK)</span>}
-    </>
+const PlayerNameCell: React.FC<{ player: Player | Bowler }> = ({ player }) => {
+    const roles: string[] = [];
+    if (player.isCaptain) roles.push('C');
+    if (player.isViceCaptain) roles.push('VC');
+    if (player.isWicketKeeper) roles.push('WK');
+    if (player.specialty) {
+        roles.push(player.specialty);
+    }
+    
+    return (
+        <>
+            <span>{player.name}</span>
+            {roles.length > 0 && <span className="ml-2 text-xs font-bold text-gray-500">({roles.join(', ')})</span>}
+        </>
+    );
+};
+
+const StarIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500 ml-1 inline-block" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
 );
+
 
 const InningDetails: React.FC<{ inning: Inning, inningNum: number, match: Match }> = ({ inning, inningNum, match }) => {
     const didNotBat = inning.batsmen.filter(p => p.balls === 0 && !p.isOut);
     const totalExtras = inning.extras.wides + inning.extras.noBalls + inning.extras.byes + inning.extras.legByes;
     const teamLogo = inning.battingTeam === match.teamA ? match.teamALogo : match.teamBLogo;
+
+    const topBatsman = useMemo(() => {
+        const battingPerformers = inning.batsmen.filter(p => p.balls > 0 || p.isOut);
+        if (battingPerformers.length === 0) return null;
+        return battingPerformers.reduce((prev, current) => (current.runs > prev.runs) ? current : prev);
+    }, [inning.batsmen]);
+
+    const topBowler = useMemo(() => {
+        const bowlingPerformers = inning.bowlers.filter(b => b.overs > 0 || b.balls > 0);
+        if (bowlingPerformers.length === 0) return null;
+        return bowlingPerformers.reduce((prev, current) => {
+            if (current.wickets > prev.wickets) return current;
+            if (current.wickets === prev.wickets && current.runsConceded < prev.runsConceded) return current;
+            return prev;
+        });
+    }, [inning.bowlers]);
 
     return (
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6 mb-6">
@@ -54,7 +85,10 @@ const InningDetails: React.FC<{ inning: Inning, inningNum: number, match: Match 
                                 <td className="p-2 font-semibold">
                                     <div className="flex items-center space-x-3">
                                         <img src={p.photoUrl || defaultAvatar} alt={p.name} className="w-8 h-8 rounded-full object-cover bg-gray-200" />
-                                        <span><PlayerNameCell player={p} /></span>
+                                        <span className="flex items-center">
+                                            <PlayerNameCell player={p} />
+                                            {topBatsman && p.id === topBatsman.id && p.runs > 0 && <StarIcon />}
+                                        </span>
                                     </div>
                                 </td>
                                 <td className="p-2 text-gray-500 text-xs">{p.isOut ? p.outBy : 'not out'}</td>
@@ -111,7 +145,10 @@ const InningDetails: React.FC<{ inning: Inning, inningNum: number, match: Match 
                                     <td className="p-2 font-semibold">
                                         <div className="flex items-center space-x-3">
                                             <img src={b.photoUrl || defaultAvatar} alt={b.name} className="w-8 h-8 rounded-full object-cover bg-gray-200" />
-                                             <span><PlayerNameCell player={b} /></span>
+                                             <span className="flex items-center">
+                                                <PlayerNameCell player={b} />
+                                                {topBowler && b.id === topBowler.id && b.wickets > 0 && <StarIcon />}
+                                             </span>
                                         </div>
                                     </td>
                                     <td className="p-2 text-center">{b.overs}.{b.balls}</td>

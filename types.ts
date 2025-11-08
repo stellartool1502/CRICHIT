@@ -14,6 +14,21 @@ export enum GameState {
   COMPLETED_MATCHES,
 }
 
+export enum PlayerSpecialty {
+  BATSMAN = 'BAT',
+  BOWLER = 'BWL',
+  ALL_ROUNDER = 'AR',
+}
+
+export interface PlayerRoleInfo {
+  name: string;
+  photoUrl: string | null;
+  isCaptain: boolean;
+  isViceCaptain: boolean;
+  isWicketKeeper: boolean;
+  specialty: PlayerSpecialty;
+}
+
 export interface Player {
   id: number;
   name: string;
@@ -27,6 +42,7 @@ export interface Player {
   isCaptain?: boolean;
   isViceCaptain?: boolean;
   isWicketKeeper?: boolean;
+  specialty?: PlayerSpecialty;
 }
 
 export interface Bowler {
@@ -39,6 +55,9 @@ export interface Bowler {
   runsConceded: number;
   wickets: number;
   isWicketKeeper?: boolean; // For display on bowler lists
+  isCaptain?: boolean;
+  isViceCaptain?: boolean;
+  specialty?: PlayerSpecialty;
 }
 
 export interface FallOfWicket {
@@ -93,10 +112,9 @@ export interface Match {
   teamALogo: string | null;
   teamBLogo: string | null;
   overs: number;
-  teamAPlayers: string[];
-  teamBPlayers: string[];
-  teamAPlayerPhotos: (string | null)[];
-  teamBPlayerPhotos: (string | null)[];
+  playersPerTeam: number;
+  teamAPlayers: PlayerRoleInfo[];
+  teamBPlayers: PlayerRoleInfo[];
   toss: Toss;
   innings: Inning[];
   currentInning: number;
@@ -155,4 +173,16 @@ export interface PlayerProfile {
   wicketsTaken: number;
   bestBowlingWickets: number;
   bestBowlingRuns: number;
+}
+
+export interface PlayerPerformance {
+  name: string;
+  photoUrl: string | null;
+  teamName: string;
+  points: number;
+  performanceSummary: string;
+  isCaptain?: boolean;
+  isViceCaptain?: boolean;
+  isWicketKeeper?: boolean;
+  specialty?: PlayerSpecialty;
 }

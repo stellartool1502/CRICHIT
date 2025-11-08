@@ -1,32 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Tournament } from '../types';
+import { Tournament, PlayerRoleInfo, PlayerSpecialty } from '../types';
 import { getTournaments } from '../services/tournamentService';
-
-interface PlayerSetup {
-  name: string;
-  photoUrl: string | null;
-  isCaptain: boolean;
-  isViceCaptain: boolean;
-  isWicketKeeper: boolean;
-}
 
 interface MatchSetupProps {
   onSetup: (setupData: {
-    teamA: string; teamB: string; overs: number; 
-    teamAPlayers: PlayerSetup[]; teamBPlayers: PlayerSetup[];
+    teamA: string; teamB: string; overs: number; playersPerTeam: number;
+    teamAPlayers: PlayerRoleInfo[]; teamBPlayers: PlayerRoleInfo[];
     teamALogo: string | null; teamBLogo: string | null; tournamentId?: string;
   }) => void;
+  onBack: () => void;
 }
 
 const defaultAvatar = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2E1YjRjYyI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTguNjg1IDE5LjA5N0E5LjcyMyA5LjcyMyAwIDAgMCAyMS43NSAxMmMwLTUuMzg1LTQuMzY1LTkuNzUtOS43NS05Ljc1UzIuMjUgNi42MTUgMi4yNSAxMmE5LjcyMyA5LjcyMyAwIDAgMCAzLjA2NSA3LjA5N0E5LjcxNiA5LjcxNiAwIDAgMCAxMiAyMS43NWE5LjcxNiA5LjcxNiAwIDAgMCA2LjY4NS0yLjY1M1ptLTEyLjU0LTEuMjg1QTcuNDg2IDcuNDg2IDAgMCAxIDEyIDE1YTcuNDg2IDcuNDg2IDAgMCAxIDUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMCAxIDEyIDIwLjI1YTguMjI0IDguMjI0IDAgMCAxLTUuODU1LTIuNDM4Wk0xNS43NSA5YTMuNzUgMy43NSAwIDEgMS03LjUgMCAzLjc1IDMuNzUgMCAwIDEgNy4yNSAwBaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+Cjwvc3ZnPgo=`;
 const defaultTeamLogo = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iY3VycmVudENvbG9yIiBjbGFzcz0idy02IGgtNiI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTIgMi4yNUE5LjcyMyA5LjcyMyAwIDEwMCAyMS43NWE5LjcxNiA5LjcxNiAwIDAgMCA2LjY4NS0yLjY1M1ptLTEyLjU0LTEuMjg1QTcuNDg2IDcuNDg2IDAgMCAxIDEyIDE1YTcuNDg2IDcuNDg2IDAgMCAxIDUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMCAxIDEyIDIwLjI1YTguMjI0IDguMjI0IDAgMCAxLTUuODU1LTIuNDM4Wk0xNS43NSA5YTMuNzUgMy43NSAwIDEgMS03LjUgMCAzLjc1IDMuNzUgMCAwIDEgNy41IDBaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+Cjwvc3ZnPgo=`;
 
-const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
+const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup, onBack }) => {
   const [teamA, setTeamA] = useState('');
   const [teamB, setTeamB] = useState('');
   const [overs, setOvers] = useState(20);
-  const [teamAPlayers, setTeamAPlayers] = useState<PlayerSetup[]>(Array.from({ length: 11 }, (_, i) => ({ name: `Player ${i + 1}`, photoUrl: null, isCaptain: false, isViceCaptain: false, isWicketKeeper: false })));
-  const [teamBPlayers, setTeamBPlayers] = useState<PlayerSetup[]>(Array.from({ length: 11 }, (_, i) => ({ name: `Player ${i + 1}`, photoUrl: null, isCaptain: false, isViceCaptain: false, isWicketKeeper: false })));
+  const [playersPerTeam, setPlayersPerTeam] = useState(11);
+  const [teamAPlayers, setTeamAPlayers] = useState<PlayerRoleInfo[]>(Array.from({ length: 11 }, (_, i) => ({ name: `Player ${i + 1}`, photoUrl: null, isCaptain: false, isViceCaptain: false, isWicketKeeper: false, specialty: PlayerSpecialty.BATSMAN })));
+  const [teamBPlayers, setTeamBPlayers] = useState<PlayerRoleInfo[]>(Array.from({ length: 11 }, (_, i) => ({ name: `Player ${i + 1}`, photoUrl: null, isCaptain: false, isViceCaptain: false, isWicketKeeper: false, specialty: PlayerSpecialty.BATSMAN })));
   const [teamALogo, setTeamALogo] = useState<string | null>(null);
   const [teamBLogo, setTeamBLogo] = useState<string | null>(null);
   const [showPlayerNames, setShowPlayerNames] = useState(false);
@@ -40,8 +34,33 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
       };
       fetchTournaments();
   }, []);
+  
+  useEffect(() => {
+    const newSize = Math.max(2, playersPerTeam || 2);
 
-  const handlePlayerDetailChange = (team: 'A' | 'B', index: number, field: keyof PlayerSetup, value: any) => {
+    const updatePlayerArray = (prevPlayers: PlayerRoleInfo[]) => {
+      const currentSize = prevPlayers.length;
+      if (newSize > currentSize) {
+        // Add players
+        const playersToAdd = Array.from({ length: newSize - currentSize }, (_, i) => ({
+          name: `Player ${currentSize + i + 1}`,
+          photoUrl: null,
+          isCaptain: false,
+          isViceCaptain: false,
+          isWicketKeeper: false,
+          specialty: PlayerSpecialty.BATSMAN,
+        }));
+        return [...prevPlayers, ...playersToAdd];
+      } else {
+        // Remove players
+        return prevPlayers.slice(0, newSize);
+      }
+    };
+    setTeamAPlayers(updatePlayerArray);
+    setTeamBPlayers(updatePlayerArray);
+  }, [playersPerTeam]);
+
+  const handlePlayerDetailChange = (team: 'A' | 'B', index: number, field: keyof PlayerRoleInfo, value: any) => {
     const players = team === 'A' ? teamAPlayers : teamBPlayers;
     const setPlayers = team === 'A' ? setTeamAPlayers : setTeamBPlayers;
     
@@ -52,11 +71,16 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
         // Ensure only one Captain, VC, or WK per team
         if (value === true) {
             if (field === 'isCaptain' || field === 'isViceCaptain' || field === 'isWicketKeeper') {
-                return { ...p, [field]: false };
+                if (p[field as keyof PlayerRoleInfo] === true) { // Unset for others
+                  return { ...p, [field]: false };
+                }
             }
         }
         return p;
     });
+    // Ensure the clicked one is set correctly after clearing others
+    newPlayers[index] = { ...newPlayers[index], [field]: value };
+
     setPlayers(newPlayers);
   };
   
@@ -83,13 +107,19 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (teamA && teamB && overs > 0) {
-      onSetup({ teamA, teamB, overs, teamAPlayers, teamBPlayers, teamALogo, teamBLogo, tournamentId: selectedTournament || undefined });
+    if (teamA && teamB && overs > 0 && playersPerTeam >= 2) {
+      onSetup({ teamA, teamB, overs, playersPerTeam, teamAPlayers, teamBPlayers, teamALogo, teamBLogo, tournamentId: selectedTournament || undefined });
     }
   };
 
   const RoleButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
     <button type="button" onClick={onClick} className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center transition-colors ${active ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
+        {children}
+    </button>
+  );
+
+  const SpecialtyButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => (
+    <button type="button" onClick={onClick} className={`w-8 h-6 rounded text-xs font-bold flex items-center justify-center transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
         {children}
     </button>
   );
@@ -108,12 +138,14 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
                 <img src={player.photoUrl || defaultAvatar} alt={`Player ${index + 1}`} className="w-10 h-10 rounded-full object-cover bg-gray-200 ring-2 ring-gray-300" />
               </label>
               <input type="text" value={player.name} onChange={(e) => handlePlayerDetailChange(team, index, 'name', e.target.value)} className="flex-1 w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-gray-800 focus:outline-none focus:ring-teal-500 focus:border-teal-500" placeholder={`${teamName || `Team ${team}`} Player ${index + 1}`} />
-              <div className="flex space-x-1.5">
+              <div className="flex items-center space-x-1.5">
                 <RoleButton active={player.isCaptain} onClick={() => handlePlayerDetailChange(team, index, 'isCaptain', !player.isCaptain)}>C</RoleButton>
                 <RoleButton active={player.isViceCaptain} onClick={() => handlePlayerDetailChange(team, index, 'isViceCaptain', !player.isViceCaptain)}>VC</RoleButton>
-                <RoleButton active={player.isWicketKeeper} onClick={() => handlePlayerDetailChange(team, index, 'isWicketKeeper', !player.isWicketKeeper)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm10 9H4V8h12v3z" /></svg>
-                </RoleButton>
+                <RoleButton active={player.isWicketKeeper} onClick={() => handlePlayerDetailChange(team, index, 'isWicketKeeper', !player.isWicketKeeper)}>WK</RoleButton>
+                <div className="w-px h-5 bg-gray-300 mx-1"></div>
+                <SpecialtyButton active={player.specialty === PlayerSpecialty.BATSMAN} onClick={() => handlePlayerDetailChange(team, index, 'specialty', PlayerSpecialty.BATSMAN)}>BAT</SpecialtyButton>
+                <SpecialtyButton active={player.specialty === PlayerSpecialty.BOWLER} onClick={() => handlePlayerDetailChange(team, index, 'specialty', PlayerSpecialty.BOWLER)}>BWL</SpecialtyButton>
+                <SpecialtyButton active={player.specialty === PlayerSpecialty.ALL_ROUNDER} onClick={() => handlePlayerDetailChange(team, index, 'specialty', PlayerSpecialty.ALL_ROUNDER)}>AR</SpecialtyButton>
               </div>
             </div>
           ))}
@@ -124,7 +156,7 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-4">
-      <div className={`w-full ${showPlayerNames ? 'max-w-4xl' : 'max-w-md'} bg-white rounded-xl shadow-lg p-8 transition-all duration-300 border border-gray-200`}>
+      <div className={`w-full ${showPlayerNames ? 'max-w-5xl' : 'max-w-md'} bg-white rounded-xl shadow-lg p-8 transition-all duration-300 border border-gray-200`}>
         <h1 className="text-3xl font-black text-center text-teal-600 uppercase tracking-wider mb-8">New Match</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -153,6 +185,10 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
               <input type="number" id="overs" value={overs} onChange={(e) => setOvers(parseInt(e.target.value, 10))} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500" min="1" required />
             </div>
             <div>
+              <label htmlFor="playersPerTeam" className="block text-sm font-medium text-gray-600">Players per Team</label>
+              <input type="number" id="playersPerTeam" value={playersPerTeam} onChange={(e) => setPlayersPerTeam(parseInt(e.target.value, 10))} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500" min="2" required />
+            </div>
+            <div className="md:col-span-2">
                 <label htmlFor="tournament" className="block text-sm font-medium text-gray-600">Tournament (Optional)</label>
                 <select id="tournament" value={selectedTournament} onChange={(e) => setSelectedTournament(e.target.value)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500">
                     <option value="">Select a tournament</option>
@@ -173,9 +209,14 @@ const MatchSetup: React.FC<MatchSetupProps> = ({ onSetup }) => {
             )}
           </div>
 
-          <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors mt-6">
-            Start Match
-          </button>
+          <div className="flex items-center gap-4 mt-6">
+              <button type="button" onClick={onBack} className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors">
+                  Back to Home
+              </button>
+              <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors">
+                  Start Match
+              </button>
+          </div>
         </form>
       </div>
     </div>

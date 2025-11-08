@@ -1,21 +1,7 @@
 import { Match } from '../types';
+import { getDb } from './dbService';
 
 const LIVE_MATCHES_KEY = 'crichit_live_matches';
-
-const getDb = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        const interval = setInterval(() => {
-            if ((window as any).aistudio?.db) {
-                clearInterval(interval);
-                resolve((window as any).aistudio.db);
-            } else if (Date.now() - startTime > 5000) { // 5 second timeout
-                clearInterval(interval);
-                reject(new Error("Database API did not initialize."));
-            }
-        }, 100);
-    });
-};
 
 // Function to get all live matches from the database
 export const getLiveMatches = async (): Promise<Match[]> => {

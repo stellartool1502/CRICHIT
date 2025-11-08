@@ -1,5 +1,5 @@
 import React from 'react';
-import { Match, Player, Bowler } from '../types';
+import { Match, Player, Bowler, PlayerSpecialty } from '../types';
 
 interface ScoreboardProps {
   match: Match;
@@ -7,6 +7,19 @@ interface ScoreboardProps {
 
 const defaultAvatar = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2E1YjRjYyI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTguNjg1IDE5LjA5N0E5LjcyMyA5LjcyMyAwIDAgMCAyMS43NSAxMmMwLTUuMzg1LTQuMzY1LTkuNzUtOS43NS05Ljc1UzIuMjUgNi42MTUgMi4yNSAxMmE5LjcyMyA5LjcyMyAwIDAgMCAzLjA2NSA3LjA5N0E5LjcxNiA5LjcxNiAwIDAgMCAxMiAyMS43NWE5LjcxNiA5LjcxNiAwIDAgMCA2LjY4NS0yLjY1M1ptLTEyLjU0LTEuMjg1QTcuNDg2IDcuNDg2IDAgMCAxIDEyIDE1YTcuNDg2IDcuNDg2IDAgMCAxIDUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMCAxIDEyIDIwLjI1YTguMjI0IDguMjI0IDAgMCAxLTUuODU1LTIuNDM4Wk0xNS43NSA5YTMuNzUgMy43NSAwIDEgMS03LjUgMCAzLjc1IDMuNzUgMCAwIDEgNy41IDBaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+Cjwvc3ZnPgo=`;
 const defaultTeamLogo = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iY3VycmVudENvbG9yIiBjbGFzcz0idy02IGgtNiI+CiAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTIgMi4yNUE5Ljc1IDkuNzUgMCAxMCAyMS43NSAxMmE5Ljc1IDkuNzUgMCAwMC05Ljc1LTkuNzVabTAgMS41YTguMjUgOC4yNSAwIDEwMCAxNi41IDguMjUgOC4yNSAwIDAwMC0xNi41Wm0zLjM3MiAxMS40MjNhLjc1Ljc1IDAgMDAtMS4wNjEtMS4wNkwxMiAxMy4wNmw LTIuMzEyLTIuMzEyYS43NS43NSAwIDAwLTEuMDYgMS4wNkwxMC45NCAxMmwzLjQzMiAzLjQzM1oiIGNsaXAtcnVsZT0iZXZlbm9kZCIgLz4KPC9zdmc+Cg==`;
+
+const PlayerRoles: React.FC<{ player: Player | Bowler }> = ({ player }) => {
+    const roles: string[] = [];
+    if (player.isCaptain) roles.push('C');
+    if (player.isViceCaptain) roles.push('VC');
+    if (player.isWicketKeeper) roles.push('WK');
+    if (player.specialty) {
+        roles.push(player.specialty);
+    }
+    if (roles.length === 0) return null;
+    return <span className="ml-1 text-xs font-bold text-gray-500">({roles.join(', ')})</span>;
+};
+
 
 const Scoreboard: React.FC<ScoreboardProps> = ({ match }) => {
   if (!match) return null;
@@ -65,6 +78,19 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ match }) => {
         </div>
       </div>
 
+       {/* Runs needed display */}
+      {match.currentInning === 1 && match.target - currentInning.score > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <p className="text-lg text-gray-800">
+                {currentInning.battingTeam} need 
+                <span className="font-black text-2xl text-teal-600 mx-2">{match.target - currentInning.score}</span> 
+                runs to win from 
+                <span className="font-bold mx-1">{(match.overs * 6) - (currentInning.overs * 6 + currentInning.balls)}</span> 
+                balls.
+            </p>
+        </div>
+      )}
+
       {/* Top Performers Display */}
       <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -76,7 +102,9 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ match }) => {
                         <div key={p.id} className="flex items-center space-x-3 justify-center md:justify-start">
                             <img src={p.photoUrl || defaultAvatar} alt={p.name} className="w-10 h-10 rounded-full object-cover bg-gray-200 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-gray-800">{p.name}</p>
+                                <p className="font-semibold text-gray-800 flex items-center">
+                                    {p.name} <PlayerRoles player={p} />
+                                </p>
                                 <p className="text-gray-600 text-xs">
                                     <span className="font-bold text-base text-gray-900">{p.runs}</span> ({p.balls})
                                     <span className="mx-2 text-gray-400">|</span>
@@ -100,7 +128,9 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ match }) => {
                         <div key={b.id} className="flex items-center space-x-3 justify-center md:justify-start">
                             <img src={b.photoUrl || defaultAvatar} alt={b.name} className="w-10 h-10 rounded-full object-cover bg-gray-200 flex-shrink-0" />
                             <div>
-                                <p className="font-semibold text-gray-800">{b.name}</p>
+                                <p className="font-semibold text-gray-800 flex items-center">
+                                    {b.name} <PlayerRoles player={b} />
+                                </p>
                                 <p className="text-gray-600 text-xs">
                                     <span className="font-bold text-base text-gray-900">{b.wickets}/{b.runsConceded}</span> ({b.overs}.{b.balls})
                                     <span className="mx-2 text-gray-400">|</span>

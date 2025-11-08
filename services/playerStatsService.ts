@@ -1,21 +1,7 @@
 import { Match, PlayerProfile } from '../types';
+import { getDb } from './dbService';
 
 const PLAYER_PROFILES_KEY = 'crichit_player_profiles';
-
-const getDb = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        const interval = setInterval(() => {
-            if ((window as any).aistudio?.db) {
-                clearInterval(interval);
-                resolve((window as any).aistudio.db);
-            } else if (Date.now() - startTime > 5000) { // 5 second timeout
-                clearInterval(interval);
-                reject(new Error("Database API did not initialize."));
-            }
-        }, 100);
-    });
-};
 
 const createEmptyProfile = (name: string, photoUrl: string | null): PlayerProfile => ({
   name,

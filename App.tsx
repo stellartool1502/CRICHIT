@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { GameState, Match, Player, Bowler, Inning, Tournament } from './types';
+import { GameState, Match, Player, Bowler, Inning, Tournament, PlayerRoleInfo } from './types';
 import Home from './components/Home';
 import MatchSetup from './components/MatchSetup';
 import Toss from './components/Toss';
@@ -26,44 +26,38 @@ const App: React.FC = () => {
   const createInitialInning = (
     battingTeam: string, 
     bowlingTeam: string, 
-    batsmenNames: string[], 
-    bowlerNames: string[],
-    batsmenPhotos: (string | null)[],
-    bowlerPhotos: (string | null)[],
-    teamPlayers: { name: string, isCaptain?: boolean, isViceCaptain?: boolean, isWicketKeeper?: boolean }[]
+    battingTeamPlayers: PlayerRoleInfo[],
+    bowlingTeamPlayers: PlayerRoleInfo[],
+    playersPerTeam: number
   ): Inning => {
-    const batsmen: Player[] = Array.from({ length: 11 }, (_, i) => {
-        const name = batsmenNames[i] || `${battingTeam} Player ${i + 1}`;
-        const playerDetails = teamPlayers.find(p => p.name === name);
-        return {
-          id: i + 1,
-          name: name,
-          photoUrl: batsmenPhotos[i] || null,
-          runs: 0,
-          balls: 0,
-          fours: 0,
-          sixes: 0,
-          isOut: false,
-          isCaptain: playerDetails?.isCaptain,
-          isViceCaptain: playerDetails?.isViceCaptain,
-          isWicketKeeper: playerDetails?.isWicketKeeper,
-        }
-    });
-    const bowlers: Bowler[] = Array.from({ length: 11 }, (_, i) => {
-        const name = bowlerNames[i] || `${bowlingTeam} Player ${i + 1}`;
-        const playerDetails = teamPlayers.find(p => p.name === name);
-        return {
-          id: i + 1,
-          name: name,
-          photoUrl: bowlerPhotos[i] || null,
-          overs: 0,
-          balls: 0,
-          maidens: 0,
-          runsConceded: 0,
-          wickets: 0,
-          isWicketKeeper: playerDetails?.isWicketKeeper,
-        }
-    });
+    const batsmen: Player[] = battingTeamPlayers.map((player, i) => ({
+        id: i + 1,
+        name: player.name,
+        photoUrl: player.photoUrl,
+        runs: 0,
+        balls: 0,
+        fours: 0,
+        sixes: 0,
+        isOut: false,
+        isCaptain: player.isCaptain,
+        isViceCaptain: player.isViceCaptain,
+        isWicketKeeper: player.isWicketKeeper,
+        specialty: player.specialty,
+    }));
+    const bowlers: Bowler[] = bowlingTeamPlayers.map((player, i) => ({
+        id: i + 1,
+        name: player.name,
+        photoUrl: player.photoUrl,
+        overs: 0,
+        balls: 0,
+        maidens: 0,
+        runsConceded: 0,
+        wickets: 0,
+        isCaptain: player.isCaptain,
+        isViceCaptain: player.isViceCaptain,
+        isWicketKeeper: player.isWicketKeeper,
+        specialty: player.specialty,
+    }));
     return {
       battingTeam,
       bowlingTeam,
@@ -79,9 +73,9 @@ const App: React.FC = () => {
   };
 
   const handleMatchSetup = (setupData: {
-    teamA: string; teamB: string; overs: number; 
-    teamAPlayers: { name: string, photoUrl: string | null, isCaptain: boolean, isViceCaptain: boolean, isWicketKeeper: boolean }[];
-    teamBPlayers: { name: string, photoUrl: string | null, isCaptain: boolean, isViceCaptain: boolean, isWicketKeeper: boolean }[];
+    teamA: string; teamB: string; overs: number; playersPerTeam: number;
+    teamAPlayers: PlayerRoleInfo[];
+    teamBPlayers: PlayerRoleInfo[];
     teamALogo: string | null; teamBLogo: string | null; tournamentId?: string;
   }) => {
     setMatch({
@@ -91,10 +85,9 @@ const App: React.FC = () => {
       teamALogo: setupData.teamALogo,
       teamBLogo: setupData.teamBLogo,
       overs: setupData.overs,
-      teamAPlayers: setupData.teamAPlayers.map(p => p.name),
-      teamBPlayers: setupData.teamBPlayers.map(p => p.name),
-      teamAPlayerPhotos: setupData.teamAPlayers.map(p => p.photoUrl),
-      teamBPlayerPhotos: setupData.teamBPlayers.map(p => p.photoUrl),
+      playersPerTeam: setupData.playersPerTeam,
+      teamAPlayers: setupData.teamAPlayers,
+      teamBPlayers: setupData.teamBPlayers,
       toss: { winner: '', decision: 'bat' },
       innings: [],
       currentInning: 0,
@@ -115,13 +108,10 @@ const App: React.FC = () => {
       const battingTeam = (decision === 'bat') ? winner : (winner === prev.teamA ? prev.teamB : prev.teamA);
       const bowlingTeam = (decision === 'bowl') ? winner : (winner === prev.teamA ? prev.teamB : prev.teamA);
       
-      const batsmenDetails = battingTeam === prev.teamA ? prev.teamAPlayers : prev.teamBPlayers;
-      const bowlerDetails = bowlingTeam === prev.teamA ? prev.teamAPlayers : prev.teamBPlayers;
-      
-      const batsmenPhotos = battingTeam === prev.teamA ? prev.teamAPlayerPhotos : prev.teamBPlayerPhotos;
-      const bowlerPhotos = bowlingTeam === prev.teamA ? prev.teamAPlayerPhotos : prev.teamBPlayerPhotos;
+      const battingTeamPlayers = battingTeam === prev.teamA ? prev.teamAPlayers : prev.teamBPlayers;
+      const bowlingTeamPlayers = bowlingTeam === prev.teamA ? prev.teamBPlayers : prev.teamAPlayers;
 
-      const firstInning = createInitialInning(battingTeam, bowlingTeam, batsmenDetails, bowlerDetails, batsmenPhotos, bowlerPhotos, []);
+      const firstInning = createInitialInning(battingTeam, bowlingTeam, battingTeamPlayers, bowlingTeamPlayers, prev.playersPerTeam);
       
       return {
         ...prev,
@@ -181,7 +171,7 @@ const App: React.FC = () => {
       case GameState.HOME:
         return <Home setGameState={setGameState} />;
       case GameState.SETUP:
-        return <MatchSetup onSetup={handleMatchSetup} />;
+        return <MatchSetup onSetup={handleMatchSetup} onBack={() => setGameState(GameState.HOME)} />;
       case GameState.TOSS:
         if (!match) return <Home setGameState={setGameState} />;
         return <Toss teamA={match.teamA} teamB={match.teamB} onTossResult={handleTossResult} onBack={() => setGameState(GameState.SETUP)} />;
@@ -190,7 +180,7 @@ const App: React.FC = () => {
         return <Scoring match={match} setMatch={setMatch} setGameState={setGameState} createInitialInning={createInitialInning} onAbandonMatch={handleGoHome} onMatchEnd={handleMatchEnd} />;
       case GameState.SELECT_MOTM:
         if (!match) return <Home setGameState={setGameState} />;
-        return <SelectMotm match={match} onSelect={handleSelectMotm} />;
+        return <SelectMotm match={match} onSelect={handleSelectMotm} onBack={() => setGameState(GameState.SCORING)} />;
       case GameState.RESULT:
          if (!match) return <Home setGameState={setGameState} />;
         return <MatchResult match={match} onNewMatch={handleGoHome} />;

@@ -105,6 +105,11 @@ const MatchesNearMe: React.FC<MatchesNearMeProps> = ({ onBack }) => {
     <div className="min-h-screen p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center mb-6">
+            <button onClick={onBack} className="mr-4 text-gray-500 hover:text-gray-800 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
             <h1 className="text-2xl font-bold text-gray-800">Live Cricket Matches (<span className="text-red-600">Near Me</span>)</h1>
         </div>
         {renderContent()}

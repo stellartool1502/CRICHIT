@@ -1,5 +1,7 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Match, Player, Bowler, Inning, GameState, ChatMessage, LastEvent } from '../types';
+import { Match, Player, Bowler, Inning, GameState, ChatMessage, LastEvent, PlayerRoleInfo } from '../types';
 import Scoreboard from './Scoreboard';
 import FullScorecard from './FullScorecard';
 import { getPlayerStatsFromAI, generateLiveCommentary } from '../services/geminiService';
@@ -12,11 +14,9 @@ interface ScoringProps {
   createInitialInning: (
     battingTeam: string, 
     bowlingTeam: string, 
-    batsmenNames: string[], 
-    bowlerNames: string[],
-    batsmenPhotos: (string | null)[],
-    bowlerPhotos: (string | null)[],
-    teamPlayers: { name: string }[] // Simplified for inning creation
+    battingTeamPlayers: PlayerRoleInfo[],
+    bowlingTeamPlayers: PlayerRoleInfo[],
+    playersPerTeam: number
   ) => Inning;
   onAbandonMatch: () => void;
   onMatchEnd: (finalMatch: Match) => void;
@@ -93,11 +93,27 @@ const WicketIcon: React.FC<{ method: string }> = ({ method }) => {
   }
 };
 
+// Fix: Moved PlayerButton outside the Scoring component to prevent re-definition and fix typing issues with the 'key' prop.
+interface PlayerButtonProps {
+    player: Player | Bowler;
+    onClick: () => void;
+}
+const PlayerButton: React.FC<PlayerButtonProps> = ({ player, onClick }) => (
+   <button 
+      onClick={onClick} 
+      className="flex items-center w-full text-left p-2 rounded-lg bg-gray-100 hover:bg-teal-500 hover:text-white transition-colors border border-gray-300"
+   >
+      <img src={player.photoUrl || defaultAvatar} alt={player.name} className="w-10 h-10 rounded-full object-cover mr-3 bg-gray-300" />
+      <span className="font-semibold">{player.name}</span>
+  </button>
+);
+
 
 const Scoring: React.FC<ScoringProps> = ({ match, setMatch, setGameState, createInitialInning, onAbandonMatch, onMatchEnd }) => {
   const [showFullScorecard, setShowFullScorecard] = useState(false);
   const [wicketModalState, setWicketModalState] = useState<{ isOpen: boolean, step: 1 | 2 | 3, method?: string, fielder?: Player | Bowler, runs?: number }>({ isOpen: false, step: 1 });
   const [isCancelModalOpen, setCancelModalOpen] = useState(false);
+  const [winnerModalInfo, setWinnerModalInfo] = useState<{ winner: string; margin: string; } | null>(null);
 
   const [boundaryAnimation, setBoundaryAnimation] = useState<'4' | '6' | null>(null);
   const [wicketAnimation, setWicketAnimation] = useState<{ type: string, method: string } | null>(null);
@@ -120,6 +136,53 @@ const Scoring: React.FC<ScoringProps> = ({ match, setMatch, setGameState, create
     };
     saveMatch();
   }, [match]);
+
+  // Effect to DETECT match end and SHOW the winner modal.
+  useEffect(() => {
+    // Don't run if match is not loaded, or if the modal is already visible.
+    if (!match || winnerModalInfo) return;
+
+    const inning = match.innings[match.currentInning];
+    if (!inning) return;
+
+    const isAllOut = inning.wickets === (match.playersPerTeam - 1);
+    const isOversFinished = inning.overs === match.overs;
+    const isTargetChased = match.currentInning === 1 && inning.score >= match.target;
+    
+    // Check for end of match condition only in the second innings
+    if (match.currentInning === 1 && (isAllOut || isOversFinished || isTargetChased)) {
+        const firstInning = match.innings[0]!;
+        const secondInning = match.innings[1]!;
+        let info = { winner: '', margin: '' };
+
+        if (secondInning.score >= match.target) {
+            const wicketsLeft = match.playersPerTeam - 1 - secondInning.wickets;
+            info = { winner: secondInning.battingTeam, margin: `by ${wicketsLeft} ${wicketsLeft === 1 ? 'wicket' : 'wickets'}` };
+        } else if (firstInning.score > secondInning.score) {
+            const runDifference = firstInning.score - secondInning.score;
+            info = { winner: firstInning.battingTeam, margin: `by ${runDifference} ${runDifference === 1 ? 'run' : 'runs'}` };
+        } else {
+            info = { winner: "Match Tied", margin: "" };
+        }
+        
+        // This will trigger the modal and the next useEffect
+        setWinnerModalInfo(info);
+    }
+  }, [match, winnerModalInfo]);
+
+  // Effect to TRANSITION from the winner modal to the next screen after a delay.
+  useEffect(() => {
+    // Only run this effect if the winner modal is currently being displayed.
+    if (winnerModalInfo) {
+      const timer = setTimeout(() => {
+        onMatchEnd(match);
+      }, 3500); // Wait 3.5 seconds
+
+      // Cleanup function to clear the timer if the component unmounts
+      return () => clearTimeout(timer);
+    }
+  }, [winnerModalInfo, onMatchEnd, match]);
+
 
     // Effect for AI Commentary
   useEffect(() => {
@@ -258,24 +321,22 @@ const Scoring: React.FC<ScoringProps> = ({ match, setMatch, setGameState, create
         const eventType = wicket ? 'wicket' : (runs === 4 || runs === 6) ? 'boundary' : runs > 0 ? 'run' : extra ? 'extra' : 'dot';
         newMatch.lastEvent = { id: Date.now(), type: eventType, runs: runs, wicketMethod: wicket?.method, batsmanName: striker.name, bowlerName: bowler.name };
 
-        const isAllOut = inning.wickets === 10;
+        const isAllOut = inning.wickets === (newMatch.playersPerTeam -1);
         const isOversFinished = inning.overs === newMatch.overs;
-        const isTargetChased = newMatch.currentInning === 1 && inning.score >= newMatch.target;
-
+        
         if (newMatch.currentInning === 0 && (isAllOut || isOversFinished)) {
             newMatch.target = inning.score + 1;
-            // Simplified inning creation for 2nd innings
             const nextBattingTeam = newMatch.teamA === inning.battingTeam ? newMatch.teamB : newMatch.teamA;
             const nextBowlingTeam = inning.battingTeam;
-            const secondInning = createInitialInning(nextBattingTeam, nextBowlingTeam, [], [], [], [], []);
+            const battingTeamPlayers = nextBattingTeam === newMatch.teamA ? newMatch.teamAPlayers : newMatch.teamBPlayers;
+            const bowlingTeamPlayers = nextBowlingTeam === newMatch.teamA ? newMatch.teamAPlayers : newMatch.teamBPlayers;
+            const secondInning = createInitialInning(nextBattingTeam, nextBowlingTeam, battingTeamPlayers, bowlingTeamPlayers, newMatch.playersPerTeam);
             newMatch.innings.push(secondInning);
             newMatch.currentInning = 1;
             newMatch.striker = null;
             newMatch.nonStriker = null;
             newMatch.bowler = null;
             setGameState(GameState.INNINGS_BREAK);
-        } else if (newMatch.currentInning === 1 && (isAllOut || isOversFinished || isTargetChased)) {
-             onMatchEnd(newMatch);
         }
 
         return newMatch;
@@ -324,15 +385,6 @@ const Scoring: React.FC<ScoringProps> = ({ match, setMatch, setGameState, create
       let title = '';
       let selectionList: React.ReactNode | null = null;
       
-      const PlayerButton = ({ player, onClick }: { player: Player | Bowler, onClick: () => void }) => (
-         <button 
-            onClick={onClick} 
-            className="flex items-center w-full text-left p-2 rounded-lg bg-gray-100 hover:bg-teal-500 hover:text-white transition-colors border border-gray-300"
-         >
-            <img src={player.photoUrl || defaultAvatar} alt={player.name} className="w-10 h-10 rounded-full object-cover mr-3 bg-gray-300" />
-            <span className="font-semibold">{player.name}</span>
-        </button>
-      );
 
       if (!striker) {
           title = 'Select Opening Striker';
@@ -388,6 +440,18 @@ const Scoring: React.FC<ScoringProps> = ({ match, setMatch, setGameState, create
         .animate-flash-zoom { animation: flash-zoom 2s ease-out forwards; }
         .animate-fade-in-up { animation: fade-in-up 0.5s 0.2s ease-out backwards; }
        `}</style>
+    
+    {winnerModalInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all animate-fade-in-up">
+                <h2 className="text-2xl font-bold text-gray-500 uppercase tracking-wider mb-2">Match Result</h2>
+                <p className="text-4xl font-black text-teal-600 mb-2">{winnerModalInfo.winner}</p>
+                <p className="text-xl text-gray-700">
+                    {winnerModalInfo.winner === 'Match Tied' ? 'The match is a tie!' : `won ${winnerModalInfo.margin}`}
+                </p>
+            </div>
+        </div>
+    )}
 
     {boundaryAnimation && ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pointer-events-none"> <div className="text-8xl md:text-9xl font-black text-yellow-400 animate-flash-zoom" style={{ WebkitTextStroke: '2px black', textShadow: '0 0 20px #facc15' }}> {boundaryAnimation === '4' ? 'FOUR!' : 'SIX!'} </div> </div> )}
     {wicketAnimation && ( <div className="fixed inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-50 pointer-events-none"> <div className="text-8xl md:text-9xl font-black text-red-500 animate-flash-zoom" style={{ WebkitTextStroke: '2px black', textShadow: '0 0 20px #ef4444' }}> {wicketAnimation.type} </div> <div className="flex flex-col items-center -mt-8 animate-fade-in-up"> <WicketIcon method={wicketAnimation.method} /> <div className="text-4xl md:text-5xl font-bold text-white" style={{ textShadow: '0 0 10px #000' }}> {wicketAnimation.method} </div> </div> </div> )}

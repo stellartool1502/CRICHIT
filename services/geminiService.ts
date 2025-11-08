@@ -68,6 +68,9 @@ export const generateMatchSummary = async (match: Match): Promise<string> => {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
+      config: {
+        systemInstruction: "You are an expert cricket analyst. Generate a professional and engaging summary of the provided cricket match data, as if for a sports news website. Focus on key performances and the story of the match.",
+      }
     });
     return response.text;
   } catch (error) {
