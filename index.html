@@ -24,9 +24,11 @@
   }
 }
 </script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 </head>
   <body class="bg-gray-100 text-gray-800">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script src="/process.js"></script>
+    <script type="text/babel" data-type="module" src="/index.tsx"></script>
   </body>
 </html>
